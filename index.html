@@ -2,841 +2,728 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fitness Tracker Mini App</title>
+    
+    <!-- Telegram WebApp API -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Project Styles -->
     <style>
-        :root { --bg: #050505; --card: #121212; --accent: #CCFF00; --danger: #FF3B30; }
-        body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; padding-bottom: 90px; }
-        
-        .bento-card { 
-            background: var(--card); 
-            border: 1px solid rgba(255,255,255,0.05); 
-            border-radius: 24px; 
-            position: relative; 
-            overflow: hidden; 
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            will-change: grid-column, transform, height; 
-        }
-        .bento-card:active { transform: scale(0.99); transition-duration: 0.1s; }
-        
-        .glass-nav { background: rgba(18,18,18,0.95); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.08); }
-        .input-field { background: #1A1A1A; color: white; border: 1px solid #333; outline: none; transition: 0.2s; }
-        .input-field:focus { border-color: var(--accent); }
-        .edit-tool { display: none !important; }
-        body.edit-mode .edit-tool { display: flex !important; }
-        .modal-overlay { background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; }
-        .loader { width: 20px; height: 20px; border: 2px solid #333; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        
-        .chart-wrapper { 
-            max-height: 0; 
-            opacity: 0; 
-            margin-top: 0;
-            overflow: hidden;
-            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease-in-out, margin-top 0.4s ease-in-out; 
-        }
-        .chart-wrapper.open { 
-            max-height: 300px; 
-            opacity: 1; 
-            margin-top: 20px; 
-            padding-bottom: 5px;
-        }
-        .arrow-icon { transition: transform 0.4s ease-in-out; }
+:root {
+    /* Telegram WebApp Theming Variables (with light theme fallbacks) */
+    --tg-bg-color: var(--tg-theme-bg-color, #ffffff);
+    --tg-text-color: var(--tg-theme-text-color, #222222);
+    --tg-hint-color: var(--tg-theme-hint-color, #999999);
+    --tg-link-color: var(--tg-theme-link-color, #2481cc);
+    --tg-button-color: var(--tg-theme-button-color, #2481cc);
+    --tg-button-text-color: var(--tg-theme-button-text-color, #ffffff);
+    --tg-secondary-bg-color: var(--tg-theme-secondary-bg-color, #f1f1f1);
+    
+    /* Layout Variables */
+    --card-bg: var(--tg-bg-color);
+    --app-bg: var(--tg-secondary-bg-color);
+    --shadow-light: 0 4px 24px rgba(0, 0, 0, 0.06);
+    --shadow-dark: 0 4px 24px rgba(0, 0, 0, 0.3);
+    --border-radius-card: 16px;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    
+    --skeleton-base: rgba(150, 150, 150, 0.2);
+    --skeleton-highlight: rgba(150, 150, 150, 0.1);
+}
 
-        .svg-container { width: 100%; height: 100%; overflow: visible; }
-        .chart-grid-line { stroke: #333; stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.5; }
-        .chart-line-path {
-            fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
-            filter: drop-shadow(0 0 4px rgba(0,0,0,0.5)); animation: drawLine 1s ease-out forwards;
-            stroke-dasharray: 1000; stroke-dashoffset: 1000;
-        }
-        .chart-area-path { stroke: none; opacity: 0.3; animation: fadeInArea 1s ease-out forwards; }
-        .chart-point {
-            stroke-width: 2px; stroke: #121212; r: 4;
-            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; opacity: 0;
-        }
-        .chart-label-val { font-size: 10px; font-weight: 800; fill: #fff; text-anchor: middle; opacity: 0; animation: slideUpFade 0.4s ease-out forwards; }
-        .chart-label-date { font-size: 9px; font-weight: 600; fill: #666; text-anchor: middle; opacity: 0; animation: fadeIn 0.4s ease-out forwards; }
-        
-        .donut-segment { transform-origin: center; animation: spinSeg 0.8s ease-out forwards; }
-        .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Fallbacks for Dark Mode if not launched via Telegram */
+        --tg-bg-color: var(--tg-theme-bg-color, #1c1c1d);
+        --tg-text-color: var(--tg-theme-text-color, #ffffff);
+        --tg-hint-color: var(--tg-theme-hint-color, #8e8e93);
+        --tg-link-color: var(--tg-theme-link-color, #0a84ff);
+        --tg-button-color: var(--tg-theme-button-color, #0a84ff);
+        --tg-secondary-bg-color: var(--tg-theme-secondary-bg-color, #000000);
+    }
+}
 
-        .fade-in { animation: fadeIn 0.4s ease-out; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes drawLine { to { stroke-dashoffset: 0; } }
-        @keyframes fadeInArea { from { opacity: 0; } to { opacity: 0.25; } }
-        @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        @keyframes slideUpFade { from { transform: translateY(5px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes spinSeg { from { stroke-dasharray: 0 100; } } 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--app-bg);
+    color: var(--tg-text-color);
+    line-height: 1.5;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-x: hidden;
+}
+
+#app {
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* Typography */
+.page-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 20px 20px;
+    letter-spacing: -0.5px;
+}
+
+h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+/* Utility */
+.hidden {
+    display: none !important;
+}
+
+.fade-in {
+    animation: fadeIn 0.4s ease forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reusable Cards */
+.card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius-card);
+    padding: 18px;
+    margin: 0 16px 16px 16px;
+    box-shadow: var(--shadow-light);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:active {
+    transform: scale(0.98);
+}
+
+/* Loader Base */
+.loader-container, .error-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--app-bg);
+    z-index: 999;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--skeleton-base);
+    border-top: 4px solid var(--tg-button-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loader-container p {
+    color: var(--tg-hint-color);
+    font-weight: 500;
+}
+
+/* Primary Button */
+.primary-btn {
+    background-color: var(--tg-button-color);
+    color: var(--tg-button-text-color);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: opacity 0.2s ease;
+}
+
+.primary-btn:active {
+    opacity: 0.8;
+}
+
+/* Skeleton Effect */
+.skeleton {
+    background: linear-gradient(-45deg, var(--skeleton-base) 40%, var(--skeleton-highlight) 50%, var(--skeleton-base) 60%);
+    background-size: 300%;
+    background-position-x: 100%;
+    animation: shimmer 1.5s infinite linear;
+}
+
+.skeleton-text {
+    background: linear-gradient(-45deg, var(--skeleton-base) 40%, var(--skeleton-highlight) 50%, var(--skeleton-base) 60%);
+    background-size: 300%;
+    background-position-x: 100%;
+    animation: shimmer 1.5s infinite linear;
+    border-radius: 6px;
+    color: transparent !important;
+}
+
+@keyframes shimmer {
+    to { background-position-x: 0%; }
+}
+
+/* Profile Elements */
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: var(--skeleton-base);
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-info h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    width: fit-content;
+    min-width: 120px;
+}
+
+.profile-info p {
+    color: var(--tg-hint-color);
+    font-size: 14px;
+    margin-bottom: 6px;
+    width: fit-content;
+    min-width: 100px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.premium-badge {
+    background: linear-gradient(135deg, #FFB900, #FF7700);
+    color: white;
+    box-shadow: 0 2px 8px rgba(255, 119, 0, 0.3);
+}
+
+.free-badge {
+    background-color: var(--tg-hint-color);
+    color: white;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--skeleton-base);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    color: var(--tg-hint-color);
+    font-size: 15px;
+}
+
+.detail-value {
+    font-size: 15px;
+    font-weight: 600;
+    min-width: 50px;
+    text-align: right;
+}
+
+/* About Block */
+.about-block p {
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.about-block .desc {
+    color: var(--tg-hint-color);
+    margin-top: 12px;
+    font-style: italic;
+}
+
+.links {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.legal-link {
+    color: var(--tg-link-color);
+    font-size: 14px;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+/* Charts Containers */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 220px;
+}
+
+.pie-container {
+    height: 240px;
+    display: flex;
+    justify-content: center;
+}
+
+/* Bottom Navigation */
+.bottom-spacer {
+    height: 90px;
+}
+
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    background-color: var(--card-bg);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+    padding: 0 10px;
+    backdrop-filter: blur(10px);
+    z-index: 100;
+}
+
+.nav-item {
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: var(--tg-hint-color);
+    font-family: inherit;
+    cursor: pointer;
+    width: 100px;
+    transition: color 0.2s ease;
+}
+
+.nav-icon {
+    width: 24px;
+    height: 24px;
+    transition: transform 0.2s ease;
+}
+
+.nav-item span {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.nav-item.active {
+    color: var(--tg-button-color);
+}
+
+.nav-item.active .nav-icon {
+    transform: translateY(-2px);
+}
     </style>
 </head>
-<body class="select-none overflow-x-hidden">
+<body>
 
-    <div id="loading" class="fixed inset-0 flex flex-col items-center justify-center bg-black z-[60]">
-        <img id="loading-avatar" src="" class="w-24 h-24 rounded-full object-cover mb-6 hidden border-2 border-zinc-800 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-        <div class="loader mb-2"></div>
-        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">LOADING...</p>
+    <!-- Loading State -->
+    <div id="loader" class="loader-container">
+        <div class="spinner"></div>
+        <p>Загрузка данных...</p>
     </div>
 
-    <div id="access-denied" class="hidden fixed inset-0 flex flex-col items-center justify-center bg-black z-[55] px-6 text-center">
-        <div class="relative mb-6">
-            <img id="ad-photo" src="" class="w-24 h-24 rounded-full object-cover border-2 border-zinc-800 grayscale hidden">
-            <div id="ad-lock" class="hidden absolute -bottom-2 -right-2 bg-[#121212] p-2 rounded-full border border-zinc-800">
-                <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-            </div>
-            <div id="ad-anon" class="hidden w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-zinc-700">
-                <svg class="w-10 h-10 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
-            </div>
-        </div>
-        <h2 id="ad-name" class="text-xl font-bold mb-2">ACCESS DENIED</h2>
-        <p id="ad-text" class="text-zinc-500 text-sm mb-6">RESTRICTED</p>
+    <!-- Error State -->
+    <div id="error" class="error-container hidden">
+        <h2>Упс!</h2>
+        <p id="error-message">Не удалось загрузить данные</p>
+        <button id="retry-btn" class="primary-btn">Повторить</button>
     </div>
 
-    <div id="modal-record" class="hidden fixed inset-0 z-50 modal-overlay p-4">
-        <div class="bg-[#121212] w-full max-w-sm rounded-3xl p-6 border border-zinc-800 shadow-2xl shadow-black">
-            <h3 class="text-xl font-black italic mb-6 text-white">Новая запись</h3>
-            <div class="space-y-3">
-                <input id="rec-name" type="text" placeholder="Название" class="input-field w-full p-4 rounded-2xl font-bold text-sm">
-                <div class="grid grid-cols-2 gap-3">
-                    <input id="rec-weight" type="number" placeholder="Вес (кг)" class="input-field w-full p-4 rounded-2xl font-bold text-sm">
-                    <input id="rec-reps" type="number" placeholder="Повторы" class="input-field w-full p-4 rounded-2xl font-bold text-sm">
-                </div>
-            </div>
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal('modal-record')" class="flex-1 bg-zinc-900 text-zinc-400 py-4 rounded-2xl font-bold text-xs uppercase">Отмена</button>
-                <button onclick="submitRecord()" class="flex-1 bg-[var(--accent)] text-black py-4 rounded-2xl font-bold text-xs uppercase">Сохранить</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-workout" class="hidden fixed inset-0 z-50 modal-overlay p-4">
-        <div class="bg-[#121212] w-full max-w-sm rounded-3xl p-6 border border-zinc-800 shadow-2xl shadow-black">
-            <h3 class="text-xl font-black italic mb-6 text-white">Ручной ввод</h3>
-            <div class="space-y-3">
-                <input id="work-prog" type="text" placeholder="Программа" class="input-field w-full p-4 rounded-2xl font-bold text-sm">
-                <input id="work-group" type="text" placeholder="Группа мышц" class="input-field w-full p-4 rounded-2xl font-bold text-sm">
-                <div class="grid grid-cols-2 gap-3">
-                    <input id="work-time" type="number" placeholder="Минуты" class="input-field w-full p-4 rounded-2xl font-bold text-sm">
-                    <input id="work-water" type="number" placeholder="Вода (мл)" class="input-field w-full p-4 rounded-2xl font-bold text-sm">
-                </div>
-            </div>
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal('modal-workout')" class="flex-1 bg-zinc-900 text-zinc-400 py-4 rounded-2xl font-bold text-xs uppercase">Отмена</button>
-                <button onclick="submitWorkout()" class="flex-1 bg-[var(--accent)] text-black py-4 rounded-2xl font-bold text-xs uppercase">Добавить</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-custom-macros" class="hidden fixed inset-0 z-50 modal-overlay p-4">
-        <div class="bg-[#121212] w-full max-w-sm rounded-3xl p-6 border border-zinc-800 shadow-2xl shadow-black">
-            <h3 class="text-xl font-black italic mb-6 text-white">Твои цели КБЖУ</h3>
-            <input id="custom-cals" type="number" placeholder="Ккал (всего)" class="input-field w-full p-4 rounded-2xl mb-3 font-bold text-lg text-[var(--accent)]">
-            <div class="grid grid-cols-3 gap-2">
-                <input id="custom-prot" type="number" placeholder="Белки" class="input-field w-full p-3 rounded-2xl font-bold text-sm text-center">
-                <input id="custom-fats" type="number" placeholder="Жиры" class="input-field w-full p-3 rounded-2xl font-bold text-sm text-center">
-                <input id="custom-carbs" type="number" placeholder="Угли" class="input-field w-full p-3 rounded-2xl font-bold text-sm text-center">
-            </div>
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal('modal-custom-macros')" class="flex-1 bg-zinc-900 text-zinc-400 py-4 rounded-2xl font-bold text-xs uppercase">Отмена</button>
-                <button onclick="submitCustomMacros()" class="flex-1 bg-[var(--accent)] text-black py-4 rounded-2xl font-bold text-xs uppercase">Сохранить</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="app-container" class="hidden opacity-0 transition-opacity duration-500">
-        <header class="px-6 pt-6 pb-2 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <div class="relative">
-                    <img id="u-photo" src="" class="w-10 h-10 rounded-full object-cover border border-white/10 hidden">
-                    <div id="u-initials" class="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">ID</div>
-                </div>
-                <div>
-                    <h1 id="u-name" class="text-md font-bold leading-tight">...</h1>
-                    <span id="u-tier" class="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">LOADING...</span>
-                </div>
-            </div>
-            <button onclick="toggleEditMode()" id="btn-edit" class="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white transition-colors active:scale-95">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-            </button>
-        </header>
-
-        <section id="tab-stats" class="px-5 pt-4 fade-in">
-            <div id="macros-container" class="mb-4"></div>
+    <!-- Main Content -->
+    <div id="app" class="hidden">
+        
+        <!-- Tab 1: Статистика -->
+        <main id="tab-stats" class="tab-pane active fade-in">
+            <h1 class="page-title">Статистика</h1>
             
-            <div class="flex justify-between items-center mb-3 px-1">
-                <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Дашборд</p>
-                <div class="relative">
-                    <select id="prog-filter" onchange="filterData()" class="bg-[#1A1A1A] text-white border border-zinc-800 rounded-lg text-[10px] font-bold uppercase py-1 px-3 outline-none">
-                        <option value="all">Все программы</option>
-                    </select>
+            <div class="card">
+                <h3>Вес (кг)</h3>
+                <div class="chart-container">
+                    <canvas id="weightChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Вода (мл)</h3>
+                <div class="chart-container">
+                    <canvas id="waterChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Тренировки (в неделю)</h3>
+                <div class="chart-container">
+                    <canvas id="workoutChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>БЖУ (Макросы)</h3>
+                <div class="chart-container pie-container">
+                    <canvas id="macrosChart"></canvas>
                 </div>
             </div>
             
-            <div class="grid grid-cols-2 gap-3 mb-3 relative">
-                <div id="card-workouts" onclick="toggleCard('workouts')" class="bento-card p-4 cursor-pointer group col-span-1 h-fit">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <span class="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Тренировок</span>
-                            <p id="u-count" class="text-3xl font-black italic tracking-tighter mt-1">0</p>
-                        </div>
-                        <div class="opacity-30 group-hover:opacity-100 transition-opacity arrow-icon">
-                            <svg class="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
-                    <div id="chart-workouts" class="chart-wrapper"></div>
+            <!-- Spacing for bottom navigation -->
+            <div class="bottom-spacer"></div>
+        </main>
+
+        <!-- Tab 2: Профиль -->
+        <main id="tab-profile" class="tab-pane fade-in">
+            <h1 class="page-title">Профиль</h1>
+            
+            <div class="card profile-header">
+                <img id="profile-photo" src="" alt="Avatar" class="avatar skeleton" />
+                <div class="profile-info">
+                    <h2 id="profile-name" class="skeleton-text">Loading...</h2>
+                    <p id="profile-username" class="skeleton-text">@loading</p>
+                    <span id="profile-subscription" class="badge premium-badge skeleton-text">...</span>
                 </div>
+            </div>
+
+            <div class="card profile-details">
+                <div class="detail-row">
+                    <span class="detail-label">Текущий вес</span>
+                    <strong id="profile-weight" class="detail-value skeleton-text">-- кг</strong>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Цель тренировок</span>
+                    <strong id="profile-goal" class="detail-value skeleton-text">...</strong>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Уровень программы</span>
+                    <strong id="profile-level" class="detail-value skeleton-text">...</strong>
+                </div>
+            </div>
+
+            <div class="card about-block">
+                <h3>О приложении</h3>
+                <p><strong>Название:</strong> Fitness Tracker Mini App</p>
+                <p><strong>Версия:</strong> 1.0.0</p>
+                <p class="desc">Приложение для отслеживания тренировок, веса и воды в удобном формате Telegram.</p>
                 
-                <div id="card-water" onclick="toggleCard('water')" class="bento-card p-4 cursor-pointer group col-span-1 h-fit">
-                    <div class="flex justify-between items-start">
-                        <div>
-                             <span class="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Вода (Л)</span>
-                             <p id="u-water" class="text-3xl font-black italic tracking-tighter text-blue-400 mt-1">0</p>
-                        </div>
-                        <div class="opacity-30 group-hover:opacity-100 transition-opacity arrow-icon">
-                            <svg class="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
-                    <div id="chart-water" class="chart-wrapper"></div>
-                </div>
-            </div>
-
-            <div id="card-time" onclick="toggleCard('time')" class="bento-card p-4 mb-6 cursor-pointer relative">
-                <div class="absolute top-4 right-4 opacity-30 arrow-icon">
-                     <svg class="w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-                <div class="flex items-center justify-between pr-8">
-                    <div class="flex flex-col">
-                        <span class="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Прогресс</span>
-                        <span id="u-progress" class="text-2xl font-black italic text-[var(--accent)] tracking-tight">+0%</span>
-                    </div>
-                    <div class="h-10 w-[1px] bg-zinc-800 mx-2 self-center"></div>
-                    <div class="flex flex-col items-end">
-                         <span class="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Ср. время</span>
-                        <span id="u-time" class="text-2xl font-black italic text-white tracking-tight">0 мин</span>
-                    </div>
-                </div>
-                <div id="chart-time" class="chart-wrapper pt-4"></div>
-            </div>
-
-            <div class="flex items-center justify-between mb-3 px-1">
-                <h2 class="text-xs font-bold text-white uppercase tracking-widest">Журнал веса</h2>
-                <button onclick="openModal('modal-record')" class="edit-tool bg-zinc-800 text-[var(--accent)] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase border border-zinc-700">+ Добавить</button>
-            </div>
-            <div id="u-records" class="space-y-3 mb-8"></div>
-            
-            <div class="flex items-center justify-between mb-3 px-1">
-                <h2 class="text-xs font-bold text-white uppercase tracking-widest">История</h2>
-                <div class="flex items-center gap-3">
-                    <div class="relative group flex items-center gap-1 cursor-pointer">
-                        <span id="history-label" class="text-zinc-500 group-hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Посл. 5</span>
-                        <svg class="w-3 h-3 text-zinc-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        <select id="history-limit" onchange="updateHistoryLimit()" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                            <option value="5">Посл. 5</option>
-                            <option value="10">Посл. 10</option>
-                            <option value="20">Посл. 20</option>
-                            <option value="30">Посл. 30</option>
-                            <option value="100">Посл. 100</option>
-                            <option value="all">Все</option>
-                        </select>
-                    </div>
-                    <button onclick="openModal('modal-workout')" class="edit-tool bg-zinc-800 text-[var(--accent)] px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase border border-zinc-700">+ Вручную</button>
+                <div class="links">
+                    <a href="https://telegra.ph/Privacy-Policy-02-17-168" target="_blank" class="legal-link">Политика конфиденциальности</a>
+                    <a href="https://telegra.ph/Terms-of-Service--Health-Disclaimer-02-17" target="_blank" class="legal-link">Условия использования</a>
                 </div>
             </div>
             
-            <div id="u-history" class="space-y-2 pb-4"></div>
-        </section>
-
-        <section id="tab-calc" class="px-5 pt-4 hidden fade-in">
-             <h2 class="text-2xl font-black italic tracking-tighter mb-6">КАЛЬКУЛЯТОР <span class="text-[var(--accent)]">КБЖУ</span></h2>
-             <div class="space-y-5">
-                <div class="grid grid-cols-2 gap-3 p-1 bg-[#1A1A1A] rounded-xl">
-                    <label class="cursor-pointer"><input type="radio" name="gender" value="male" class="peer sr-only" checked><div class="py-3 text-center text-xs font-bold uppercase rounded-lg text-zinc-500 peer-checked:bg-[#2A2A2A] peer-checked:text-white transition-all">Мужчина</div></label>
-                    <label class="cursor-pointer"><input type="radio" name="gender" value="female" class="peer sr-only"><div class="py-3 text-center text-xs font-bold uppercase rounded-lg text-zinc-500 peer-checked:bg-[#2A2A2A] peer-checked:text-white transition-all">Женщина</div></label>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <input type="number" id="c-weight" class="input-field w-full p-4 rounded-2xl font-bold text-sm" placeholder="Вес (кг)">
-                    <input type="number" id="c-height" class="input-field w-full p-4 rounded-2xl font-bold text-sm" placeholder="Рост (см)">
-                </div>
-                <input type="number" id="c-age" class="input-field w-full p-4 rounded-2xl font-bold text-sm" placeholder="Возраст">
-                <div class="relative">
-                    <select id="c-activity" class="input-field w-full p-4 rounded-2xl font-bold text-xs appearance-none uppercase">
-                        <option value="1.2">Сидячий (1.2)</option>
-                        <option value="1.375">Лёгкая (1-3/нед)</option>
-                        <option value="1.55">Средняя (3-5/нед)</option>
-                        <option value="1.725">Высокая (6-7/нед)</option>
-                    </select>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <label class="cursor-pointer"><input type="radio" name="goal" value="cut" class="peer sr-only"><div class="py-3 border border-zinc-800 rounded-xl text-center text-[10px] font-bold uppercase text-zinc-500 peer-checked:border-[var(--accent)] peer-checked:text-[var(--accent)]">Сушка</div></label>
-                    <label class="cursor-pointer"><input type="radio" name="goal" value="maintain" class="peer sr-only" checked><div class="py-3 border border-zinc-800 rounded-xl text-center text-[10px] font-bold uppercase text-zinc-500 peer-checked:border-white peer-checked:text-white">Норма</div></label>
-                    <label class="cursor-pointer"><input type="radio" name="goal" value="bulk" class="peer sr-only"><div class="py-3 border border-zinc-800 rounded-xl text-center text-[10px] font-bold uppercase text-zinc-500 peer-checked:border-red-500 peer-checked:text-red-500">Масса</div></label>
-                </div>
-                <button type="button" onclick="calculateMacros()" class="w-full bg-[var(--accent)] text-black py-4 rounded-2xl font-black uppercase text-sm active:scale-95 transition-transform">Рассчитать</button>
-            </div>
-            <div id="calc-result" class="hidden mt-8 bento-card p-6 border-t-4 border-[var(--accent)] mb-8">
-                <div class="text-center mb-4">
-                    <h3 id="res-total" class="text-4xl font-black italic text-white">0</h3>
-                    <p class="text-xs font-bold uppercase text-zinc-500">ккал / день</p>
-                </div>
-                <div class="grid grid-cols-3 gap-2 text-center mb-6">
-                    <div class="bg-zinc-900/50 p-2 rounded-lg"><p class="text-[9px] font-bold uppercase text-zinc-500">Белки</p><p id="res-p" class="font-bold text-sm">0</p></div>
-                    <div class="bg-zinc-900/50 p-2 rounded-lg"><p class="text-[9px] font-bold uppercase text-zinc-500">Жиры</p><p id="res-f" class="font-bold text-sm">0</p></div>
-                    <div class="bg-zinc-900/50 p-2 rounded-lg"><p class="text-[9px] font-bold uppercase text-zinc-500">Угли</p><p id="res-c" class="font-bold text-sm">0</p></div>
-                </div>
-                <button id="btn-save" onclick="saveMacros()" class="w-full bg-[#1A1A1A] text-white border border-zinc-800 py-3 rounded-2xl font-bold uppercase text-xs active:scale-95 transition-transform">Сохранить</button>
-            </div>
-        </section>
-
-        <nav class="fixed bottom-0 left-0 right-0 glass-nav h-[80px] pb-5 flex justify-around items-center z-50">
-            <button onclick="switchTab('stats')" id="btn-stats" class="flex flex-col items-center justify-center w-16 h-full group">
-                <svg class="w-6 h-6 text-[var(--accent)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                <span class="text-[9px] font-bold uppercase mt-1 text-[var(--accent)]">Статы</span>
-            </button>
-            <button onclick="switchTab('calc')" id="btn-calc" class="flex flex-col items-center justify-center w-16 h-full group">
-                <svg class="w-6 h-6 text-zinc-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                <span class="text-[9px] font-bold uppercase mt-1 text-zinc-600">КБЖУ</span>
-            </button>
-        </nav>
+            <!-- Spacing for bottom navigation -->
+            <div class="bottom-spacer"></div>
+        </main>
     </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-tab="tab-stats">
+            <svg viewBox="0 0 24 24" fill="none" class="nav-icon">
+                <path d="M18 20V10M12 20V4M6 20V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Статистика</span>
+        </button>
+        <button class="nav-item" data-tab="tab-profile">
+            <svg viewBox="0 0 24 24" fill="none" class="nav-icon">
+                <path d="M20 21V19C20 17.8954 19.1046 17 18 17H6C4.89543 17 4 17.8954 4 19V21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Профиль</span>
+        </button>
+    </nav>
 
     <script>
-        const N8N_URL = "https://lkn123.app.n8n.cloud/webhook-test/miniapp-data"; 
+const tg = window.Telegram.WebApp;
+
+// Expand WebApp to full height
+tg.expand();
+
+// Fallback user for local testing
+const user = tg.initDataUnsafe?.user || {
+    id: 12345678,
+    first_name: "Иван",
+    username: "ivan_test",
+    photo_url: ""
+};
+
+const WEBHOOK_URL = "https://lkn123.app.n8n.cloud/webhook-test/miniapp-data";
+
+document.addEventListener("DOMContentLoaded", () => {
+    initTabs();
+    
+    document.getElementById("retry-btn").addEventListener("click", fetchData);
+    
+    // Auto-fetch data on load
+    fetchData();
+});
+
+function initTabs() {
+    const navItems = document.querySelectorAll(".nav-item");
+    const tabPanes = document.querySelectorAll(".tab-pane");
+
+    navItems.forEach(item => {
+        item.addEventListener("click", () => {
+            const tabId = item.getAttribute("data-tab");
+            
+            navItems.forEach(nav => nav.classList.remove("active"));
+            tabPanes.forEach(pane => {
+                pane.classList.remove("active");
+                pane.classList.add("hidden");
+            });
+
+            item.classList.add("active");
+            const activePane = document.getElementById(tabId);
+            activePane.classList.add("active");
+            activePane.classList.remove("hidden");
+        });
+    });
+}
+
+async function fetchData() {
+    document.getElementById("loader").classList.remove("hidden");
+    document.getElementById("error").classList.add("hidden");
+    document.getElementById("app").classList.add("hidden");
+
+    try {
+        const response = await fetch(WEBHOOK_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                chat_id: user.id || 0,
+                username: user.username || "",
+                first_name: user.first_name || "",
+                photo_url: user.photo_url || ""
+            })
+        });
+
+        if (!response.ok) throw new Error("Network error Status: " + response.status);
+
+        const data = await response.json();
         
-        const tg = window.Telegram.WebApp;
-        tg.ready(); tg.expand(); tg.disableClosingConfirmation();
-        tg.headerColor = '#050505'; tg.backgroundColor = '#050505';
-
-        let globalData = null;
-        let isEditMode = false;
-        let currentMacros = null;
-        let historyLimit = 5;
-
-        window.onload = () => {
-            const initData = tg.initData;
-            const initDataUnsafe = tg.initDataUnsafe;
-
-            if (!initData) {
-                showAccessDenied({ name: 'ACCESS_DENIED', photo: '', notTelegram: true });
-                return; 
-            }
-
-            const photoUrl = initDataUnsafe?.user?.photo_url;
-            if (photoUrl) {
-                const loadAv = document.getElementById('loading-avatar');
-                const headAv = document.getElementById('u-photo');
-                const adAv = document.getElementById('ad-photo');
-                
-                if(loadAv) { loadAv.src = photoUrl; loadAv.classList.remove('hidden'); }
-                if(headAv) { headAv.src = photoUrl; headAv.classList.remove('hidden'); document.getElementById('u-initials').classList.add('hidden'); }
-                if(adAv) { adAv.src = photoUrl; }
-
-                const img = new Image();
-                img.crossOrigin = "Anonymous";
-                img.src = photoUrl;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    try {
-                        ctx.drawImage(img, 0, 0);
-                        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-                        let r = 0, g = 0, b = 0;
-                        for (let i = 0; i < data.length; i += 4) {
-                            r += data[i]; g += data[i + 1]; b += data[i + 2];
-                        }
-                        const count = data.length / 4;
-                        document.documentElement.style.setProperty('--accent', `rgb(${Math.floor(r/count)},${Math.floor(g/count)},${Math.floor(b/count)})`);
-                    } catch (e) {}
-                };
-            }
-
-            loadData(initData);
-        };
+        // Hide loader, show main app
+        document.getElementById("loader").classList.add("hidden");
+        document.getElementById("app").classList.remove("hidden");
         
-        function updateHistoryLimit() {
-            const select = document.getElementById('history-limit');
-            const label = document.getElementById('history-label');
-            const val = select.value;
-            historyLimit = val === 'all' ? Infinity : parseInt(val);
-            label.innerText = select.options[select.selectedIndex].text;
-            filterData();
-        }
+        renderProfileInfo(data.users || {});
+        renderCharts(data);
 
-        function loadData(initData) {
-            fetch(`${N8N_URL}?auth=${encodeURIComponent(initData)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) { showAccessDenied(data); return; }
-                    if (data.success) { globalData = data; renderApp(data); } 
-                })
-                .catch(e => { throw new Error("CONNECTION_ERROR"); });
-        }
+    } catch (error) {
+        console.error("Failed to fetch data:", error);
+        document.getElementById("loader").classList.add("hidden");
+        document.getElementById("error").classList.remove("hidden");
+    }
+}
 
-        function showAccessDenied(data) {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('access-denied').classList.remove('hidden');
-            const photoEl = document.getElementById('ad-photo');
-            const nameEl = document.getElementById('ad-name');
-            const anonEl = document.getElementById('ad-anon');
-            const lockEl = document.getElementById('ad-lock');
+// ---- Rendering Logic ---- //
 
-            if (data.notTelegram) {
-                photoEl.classList.add('hidden');
-                lockEl.classList.add('hidden');
-                anonEl.classList.remove('hidden');
-                nameEl.innerText = "TELEGRAM REQUIRED";
-            } else {
-                anonEl.classList.add('hidden');
-                photoEl.classList.remove('hidden');
-                lockEl.classList.remove('hidden');
+function removeSkeleton(element, text) {
+    element.classList.remove("skeleton-text");
+    element.textContent = text || "—";
+    element.style.color = "inherit";
+    element.style.background = "none";
+}
+
+function renderProfileInfo(userData) {
+    // Render Telegram Native Info
+    const photoEl = document.getElementById("profile-photo");
+    photoEl.src = user.photo_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23ccc' width='100' height='100'/><text fill='%23666' font-size='40' x='50' y='65' font-family='sans-serif' text-anchor='middle'>?</text></svg>";
+    photoEl.classList.remove("skeleton");
+
+    removeSkeleton(document.getElementById("profile-name"), user.first_name || "Неизвестный");
+    removeSkeleton(document.getElementById("profile-username"), user.username ? `@${user.username}` : "");
+
+    // Subscription
+    const subEl = document.getElementById("profile-subscription");
+    subEl.classList.remove("skeleton-text");
+    subEl.style.color = "white"; // remove transparent color from skeleton
+    if (userData.subscription_tier === "premium") {
+        subEl.textContent = "Premium";
+        subEl.className = "badge premium-badge";
+    } else {
+        subEl.textContent = "Free";
+        subEl.className = "badge free-badge";
+    }
+
+    // Additional User details from backend
+    removeSkeleton(document.getElementById("profile-weight"), `${userData.current_weight || "--"} кг`);
+    removeSkeleton(document.getElementById("profile-goal"), userData.workout_goal || "Не указана");
+    removeSkeleton(document.getElementById("profile-level"), userData.program_level || "Не указан");
+}
+
+// Global chart instances to destroy them before re-rendering
+const charts = {};
+
+function initChart(id, config) {
+    if (charts[id]) charts[id].destroy();
+    const ctx = document.getElementById(id).getContext('2d');
+    
+    // Automatically apply Telegram-aware default font color
+    Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--tg-hint-color').trim() || '#999';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    
+    charts[id] = new Chart(ctx, config);
+}
+
+function renderCharts(data) {
+    const tgButtonColor = getComputedStyle(document.body).getPropertyValue('--tg-button-color').trim() || '#2481cc';
+    const tgHintColor = getComputedStyle(document.body).getPropertyValue('--tg-hint-color').trim() || '#999999';
+
+    // 1. Weight Chart
+    const weightHistory = data.weight_history || [];
+    initChart('weightChart', {
+        type: 'line',
+        data: {
+            labels: weightHistory.map(w => w.date || ''),
+            datasets: [{
+                label: 'Вес (кг)',
+                data: weightHistory.map(w => parseFloat(w.weight) || 0),
+                borderColor: tgButtonColor,
+                backgroundColor: tgButtonColor + '30', // 30 in hex for alpha
+                tension: 0.4,
+                fill: true,
+                pointRadius: 4,
+                pointBackgroundColor: tgButtonColor
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { min: Math.min(...weightHistory.map(w => w.weight)) - 2 }
             }
         }
+    });
 
-        function renderApp(data) {
-            document.getElementById('u-name').innerText = data.name || "User";
-            document.getElementById('u-tier').innerText = data.subscription || "FREE";
-            document.getElementById('u-tier').style.color = data.subscription?.toUpperCase() === 'PREMIUM' ? 'var(--accent)' : '#A1A1AA';
-
-            let m = data.macros;
-            if (typeof m === 'string') { try { m = JSON.parse(m); } catch(e) { m = {cals:0}; } }
-            renderMacrosWidget(m);
-            
-            const select = document.getElementById('prog-filter');
-            select.innerHTML = '';
-            
-            const hasMultiplePrograms = data.programs && data.programs.length > 1;
-            const hasAnyPrograms = data.programs && data.programs.length > 0;
-
-            if (hasMultiplePrograms) {
-                select.innerHTML = '<option value="all">ALL</option>';
-            } else if (!hasAnyPrograms) {
-                 select.innerHTML = '<option value="all">NONE</option>';
-                 select.disabled = true;
-            }
-
-            if (hasAnyPrograms) {
-                data.programs.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p;
-                    opt.innerText = p.length > 20 ? p.substring(0,20)+'...' : p;
-                    select.appendChild(opt);
-                });
-                if (!hasMultiplePrograms) select.value = data.programs[0];
-            }
-
-            filterData();
-            renderRecords(data.records || data.weight_history || []);
-
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('app-container').classList.remove('hidden', 'opacity-0');
-            if(isEditMode) renderMacrosWidget(m);
-        }
-
-        function toggleEditMode() {
-            isEditMode = !isEditMode;
-            document.body.classList.toggle('edit-mode');
-            const btn = document.getElementById('btn-edit');
-            btn.style.color = isEditMode ? 'var(--accent)' : '#A1A1AA';
-            let m = globalData.macros;
-            if (typeof m === 'string') { try { m = JSON.parse(m); } catch(e) { m = {cals:0}; } }
-            renderMacrosWidget(m);
-        }
-
-        function renderMacrosWidget(macros) {
-            const container = document.getElementById('macros-container');
-            const hasMacros = macros && macros.cals > 0;
-
-            if (hasMacros) {
-                container.innerHTML = `
-                    <div class="bento-card p-5 relative border-l-4 border-[var(--accent)]">
-                        <div class="absolute top-0 right-0 w-24 h-24 bg-[var(--accent)] opacity-[0.03] blur-[40px] rounded-full pointer-events-none"></div>
-                        <div class="flex justify-between items-center mb-3">
-                            <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">PLAN</p>
-                            <button onclick="deleteMacros(this)" class="edit-tool text-red-500 bg-red-500/10 px-2 py-0.5 rounded text-[10px] font-bold uppercase">DELETE</button>
-                        </div>
-                        <div class="flex items-baseline space-x-2 mb-4">
-                            <h3 class="text-3xl font-black italic text-white">${macros.cals}</h3>
-                            <span class="text-xs text-zinc-600 font-bold uppercase">kcal</span>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2">
-                            <div class="bg-black/40 p-2 rounded-lg text-center"><p class="text-[8px] text-zinc-500 uppercase font-bold">P</p><p class="text-xs font-bold text-zinc-200">${macros.p}</p></div>
-                            <div class="bg-black/40 p-2 rounded-lg text-center"><p class="text-[8px] text-zinc-500 uppercase font-bold">F</p><p class="text-xs font-bold text-zinc-200">${macros.f}</p></div>
-                            <div class="bg-black/40 p-2 rounded-lg text-center"><p class="text-[8px] text-zinc-500 uppercase font-bold">C</p><p class="text-xs font-bold text-zinc-200">${macros.c}</p></div>
-                        </div>
-                    </div>`;
-            } else {
-                container.innerHTML = `
-                    <div onclick="openModal('modal-custom-macros')" class="edit-tool justify-center w-full py-4 border border-dashed border-zinc-800 rounded-2xl text-center text-xs font-bold text-zinc-500 uppercase cursor-pointer hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
-                        + MACROS GOAL
-                    </div>`;
-            }
-        }
-
-        function renderRecords(list) {
-            const container = document.getElementById('u-records');
-            if (!list || list.length === 0) { container.innerHTML = '<p class="text-zinc-700 text-xs italic text-center py-4">EMPTY</p>'; return; }
-            
-            const limitedList = list.slice(0, 5);
-            
-            container.innerHTML = limitedList.map(r => `
-                <div class="group relative bento-card p-4 mb-3 border-l-4 border-[var(--accent)] flex justify-between items-center">
-                    <button onclick="deleteItem(${r.rowIndex}, this, 'delete_record')" class="edit-tool absolute top-2 right-2 w-8 h-8 bg-red-500/10 text-red-500 rounded-lg items-center justify-center hover:bg-red-500 hover:text-white transition-all z-20">✕</button>
-                    <div class="flex flex-col relative z-10">
-                         <h3 class="text-base font-black uppercase italic text-white leading-tight pr-10">${r.name || 'WEIGHT'}</h3>
-                         <p class="text-[10px] text-zinc-500 font-bold mt-1">${r.date}</p>
-                    </div>
-                    <div class="text-right">
-                        <div class="flex items-baseline justify-end gap-1">
-                            <span class="text-2xl font-black italic text-[var(--accent)] tracking-tighter">${r.weight}</span>
-                            <span class="text-[10px] font-bold text-zinc-500 uppercase">KG</span>
-                        </div>
-                        ${r.reps ? `<span class="inline-block bg-zinc-800 text-zinc-300 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider mt-1">${r.reps} rep.</span>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function renderHistory(list) {
-            const container = document.getElementById('u-history');
-            if (!list || list.length === 0) { container.innerHTML = '<p class="text-zinc-700 text-xs italic text-center py-4">EMPTY</p>'; return; }
-            
-            const displayList = (historyLimit === Infinity) ? list : list.slice(0, historyLimit);
-
-            container.innerHTML = displayList.map(h => `
-                <div class="flex items-center justify-between py-3 border-b border-zinc-900 last:border-0 group relative">
-                    <div>
-                        <p class="text-[10px] font-bold text-zinc-500">${h.date}</p>
-                        <p class="text-xs font-bold text-white uppercase">${h.group || h.program}</p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="bg-zinc-900 text-zinc-400 text-[9px] px-2 py-1 rounded font-bold uppercase">${h.time || 0} min</span>
-                        <button onclick="deleteItem(${h.rowIndex}, this, 'delete_history')" class="edit-tool text-red-500 w-6 h-6 bg-red-500/10 rounded items-center justify-center">✕</button>
-                    </div>
-                </div>
-            `).join('');
-            
-             if (list.length > displayList.length) {
-                container.innerHTML += `<div class="text-center py-2"><p class="text-[9px] text-zinc-700 italic">${displayList.length} / ${list.length}</p></div>`;
-            }
-        }
-
-        function filterData() {
-            if (!globalData) return;
-            const filter = document.getElementById('prog-filter').value;
-            const filteredHistory = (filter === 'all') ? globalData.history : globalData.history.filter(h => h.program === filter);
-
-            let totalTime = 0, totalWater = 0;
-            filteredHistory.forEach(h => { totalTime += (h.time || 0); totalWater += (h.water || 0); });
-            
-            document.getElementById('u-count').innerText = filteredHistory.length;
-            document.getElementById('u-water').innerText = (totalWater / 1000).toFixed(1);
-            document.getElementById('u-time').innerText = filteredHistory.length > 0 ? Math.round(totalTime / filteredHistory.length) + " min" : "0 min";
-            
-            const progEl = document.getElementById('u-progress');
-            if (filter === 'all') {
-                progEl.innerText = "-";
-                progEl.style.color = "#555";
-            } else {
-                let prog = "0%";
-                if (filteredHistory.length >= 2) {
-                    const cur = filteredHistory[0].time || 0; const prev = filteredHistory[1].time || 0;
-                    if (prev > 0) { const diff = Math.round(((cur - prev) / prev) * 100); prog = (diff > 0 ? "+" : "") + diff + "%"; }
+    // 2. Water Chart
+    const waterHistory = data.daily_metrics || [];
+    initChart('waterChart', {
+        type: 'bar',
+        data: {
+            labels: waterHistory.map(w => w.date || ''),
+            datasets: [
+                {
+                    type: 'line',
+                    label: 'Цель (мл)',
+                    data: waterHistory.map(w => parseFloat(w.daily_water_goal) || 2000),
+                    borderColor: '#2ecc71',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                },
+                {
+                    type: 'bar',
+                    label: 'Выпито (мл)',
+                    data: waterHistory.map(w => parseFloat(w.water_ml) || 0),
+                    backgroundColor: '#3498db',
+                    borderRadius: 6
                 }
-                progEl.innerText = prog;
-                progEl.style.color = prog.includes('-') ? '#FF3B30' : 'var(--accent)';
-            }
-
-            renderHistory(filteredHistory);
-
-            if(document.getElementById('chart-workouts').classList.contains('open')) renderInlineChart('workouts', document.getElementById('chart-workouts'));
-            if(document.getElementById('chart-water').classList.contains('open')) renderInlineChart('water', document.getElementById('chart-water'));
-            if(document.getElementById('chart-time').classList.contains('open')) renderInlineChart('time', document.getElementById('chart-time'));
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 10 } } },
+            scales: { y: { beginAtZero: true } }
         }
+    });
 
-        function toggleCard(type) {
-            const cardId = `card-${type}`;
-            const chartId = `chart-${type}`;
-            const card = document.getElementById(cardId);
-            const chart = document.getElementById(chartId);
-            const arrow = card.querySelector('.arrow-icon');
-            
-            const isClosing = chart.classList.contains('open');
-
-            if (type !== 'time') {
-                if (isClosing) {
-                    card.classList.replace('col-span-2', 'col-span-1');
-                    chart.classList.remove('open');
-                    if(arrow) arrow.style.transform = 'rotate(0deg)';
-                } else {
-                    card.classList.replace('col-span-1', 'col-span-2');
-                    renderInlineChart(type, chart);
-                    requestAnimationFrame(() => { chart.classList.add('open'); });
-                    if(arrow) arrow.style.transform = 'rotate(180deg)';
-                }
-            } else {
-                 if (isClosing) {
-                    chart.classList.remove('open');
-                    if(arrow) arrow.style.transform = 'rotate(0deg)';
-                } else {
-                    renderInlineChart(type, chart);
-                    requestAnimationFrame(() => { chart.classList.add('open'); });
-                    if(arrow) arrow.style.transform = 'rotate(180deg)';
-                }
+    // 3. Workout Chart
+    const workoutHistory = data.workout_history || [];
+    initChart('workoutChart', {
+        type: 'bar',
+        data: {
+            labels: workoutHistory.map(w => w.week || w.date || ''),
+            datasets: [{
+                label: 'Кол-во тренировок',
+                data: workoutHistory.map(w => parseInt(w.count || w.workouts || 0)),
+                backgroundColor: '#9b59b6',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
             }
         }
+    });
 
-        function renderInlineChart(type, container) {
-            const filter = document.getElementById('prog-filter').value;
-            if(!globalData || !globalData.history) return;
-            
-            let data = (filter === 'all') ? globalData.history : globalData.history.filter(h => h.program === filter);
-            
-            if (data.length === 0) {
-                container.innerHTML = '<p class="text-zinc-600 text-xs text-center py-8">EMPTY</p>';
-                return;
-            }
-
-            if (type === 'workouts') {
-                const distribution = {};
-                let total = 0;
-                
-                data.forEach(d => {
-                    const group = d.group || 'OTHER';
-                    distribution[group] = (distribution[group] || 0) + 1;
-                    total++;
-                });
-
-                const segments = Object.entries(distribution)
-                    .map(([label, value]) => ({ label, value }))
-                    .sort((a, b) => b.value - a.value);
-
-                const colors = ['var(--accent)', '#3b82f6', '#f97316', '#ef4444', '#a855f7'];
-
-                let svgContent = '';
-                let legendContent = '';
-                let cumulativePercent = 0;
-
-                segments.forEach((seg, i) => {
-                    const percent = seg.value / total;
-                    const startPercent = cumulativePercent;
-                    cumulativePercent += percent;
-                    const color = colors[i % colors.length];
-
-                    const getCoords = (p) => {
-                        const x = Math.cos(2 * Math.PI * p);
-                        const y = Math.sin(2 * Math.PI * p);
-                        return { x, y };
-                    };
-
-                    const start = getCoords(startPercent);
-                    const end = getCoords(cumulativePercent);
-                    const largeArcFlag = percent > 0.5 ? 1 : 0;
-
-                    const pathData = [
-                        `M ${start.x} ${start.y}`,
-                        `A 1 1 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
-                        `L 0 0`,
-                    ].join(' ');
-
-                    svgContent += `<path d="${pathData}" fill="${color}" stroke="#121212" stroke-width="0.05" class="donut-segment" style="animation-delay:${i*100}ms"></path>`;
-                    
-                    legendContent += `
-                        <div class="flex items-center justify-between text-[10px] mb-1">
-                            <div class="flex items-center"><span class="legend-dot" style="background:${color}"></span><span class="text-zinc-400 font-bold">${seg.label}</span></div>
-                            <span class="font-bold text-white ml-2">${Math.round(percent*100)}%</span>
-                        </div>
-                    `;
-                });
-
-                if(segments.length === 1) {
-                     svgContent = `<circle cx="0" cy="0" r="1" fill="${colors[0]}" stroke="#121212" stroke-width="0.05" class="donut-segment"></circle>`;
-                }
-
-                container.innerHTML = `
-                    <div class="flex items-center justify-between px-4 pt-4 pb-2 h-full">
-                        <div class="w-32 h-32 relative flex-shrink-0">
-                            <svg viewBox="-1 -1 2 2" style="transform: rotate(-90deg);" class="w-full h-full overflow-visible">
-                                ${svgContent}
-                                <circle cx="0" cy="0" r="0.6" fill="#121212"></circle>
-                            </svg>
-                            <div class="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                                <span class="text-2xl font-black text-white italic tracking-tighter">${total}</span>
-                                <span class="text-[8px] text-zinc-500 uppercase font-bold">TOTAL</span>
-                            </div>
-                        </div>
-                        <div class="flex-1 pl-6 h-32 overflow-y-auto no-scrollbar flex flex-col justify-center">
-                            ${legendContent}
-                        </div>
-                    </div>
-                `;
-            } 
-            else {
-                const chartData = data.slice(0, 8).reverse();
-
-                let accentColor = '#3b82f6'; 
-                let unit = '';
-
-                if (type === 'water') {
-                    unit = 'L';
-                    accentColor = '#06b6d4'; 
-                } else {
-                    unit = 'm';
-                    accentColor = '#f97316';
-                }
-
-                const values = chartData.map(d => type === 'water' ? (d.water || 0) / 1000 : (d.time || 0));
-                const maxVal = Math.max(...values, 1) * 1.1; 
-                
-                const width = 300;
-                const height = 150;
-                const paddingX = 20;
-                const paddingY = 20;
-                const usableWidth = width - (paddingX * 2);
-                const usableHeight = height - (paddingY * 2);
-
-                const points = values.map((val, i) => {
-                    const x = paddingX + (i / (values.length - 1 || 1)) * usableWidth;
-                    const y = height - paddingY - ((val / maxVal) * usableHeight);
-                    return { x, y, val, label: chartData[i].date.split('.')[0] };
-                });
-
-                let pathD = `M ${points[0].x} ${points[0].y}`;
-                points.forEach((p, i) => { if(i>0) pathD += ` L ${p.x} ${p.y}`; });
-                
-                let areaD = `${pathD} L ${points[points.length-1].x} ${height - paddingY} L ${points[0].x} ${height - paddingY} Z`;
-
-                const gridLines = [0.25, 0.5, 0.75].map(pct => {
-                    const y = height - paddingY - (pct * usableHeight);
-                    return `<line x1="${paddingX}" y1="${y}" x2="${width-paddingX}" y2="${y}" class="chart-grid-line" />`;
-                }).join('');
-
-                container.innerHTML = `
-                <div class="svg-container pt-4 pb-2">
-                    <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:100%; height:100%;">
-                        <defs>
-                            <linearGradient id="grad-${type}" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" style="stop-color:${accentColor};stop-opacity:0.3" />
-                                <stop offset="100%" style="stop-color:${accentColor};stop-opacity:0" />
-                            </linearGradient>
-                        </defs>
-                        ${gridLines}
-                        <path d="${areaD}" fill="url(#grad-${type})" class="chart-area-path" />
-                        <path d="${pathD}" class="chart-line-path" stroke="${accentColor}" />
-                        ${points.map((p, i) => `
-                            <circle cx="${p.x}" cy="${p.y}" class="chart-point" style="stroke:${accentColor}; animation-delay: ${i*50}ms" />
-                            <text x="${p.x}" y="${p.y - 12}" class="chart-label-val" style="animation-delay: ${i*50 + 200}ms">${p.val}${unit}</text>
-                            <text x="${p.x}" y="${height - 5}" class="chart-label-date" style="animation-delay: ${i*50}ms">${p.label}</text>
-                        `).join('')}
-                    </svg>
-                </div>`;
+    // 4. Macros Chart
+    const macros = data.users?.macros || { p: 30, f: 30, c: 40 };
+    initChart('macrosChart', {
+        type: 'doughnut',
+        data: {
+            labels: ['Белки', 'Жиры', 'Углеводы'],
+            datasets: [{
+                data: [parseFloat(macros.p), parseFloat(macros.f), parseFloat(macros.c)],
+                backgroundColor: ['#e74c3c', '#f1c40f', '#3498db'],
+                borderWidth: 0,
+                cutout: '75%'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
             }
         }
-
-        function deleteItem(rowIndex, btn, actionType) {
-            const initData = tg.initData;
-            const row = btn.closest('.group') || btn.closest('.bento-card');
-            row.style.opacity = '0';
-            setTimeout(() => row.style.display = 'none', 300);
-            fetch(`${N8N_URL}?auth=${encodeURIComponent(initData)}&action=${actionType}&row=${rowIndex}`)
-                .then(res => res.json())
-                .then(d => {
-                    if(d.success) fetch(`${N8N_URL}?auth=${encodeURIComponent(initData)}`).then(r => r.json()).then(newdata => { globalData = newdata; filterData(); });
-                });
-        }
-        
-        function deleteMacros(btn) {
-            const initData = tg.initData;
-            fetch(`${N8N_URL}?auth=${encodeURIComponent(initData)}&action=delete_macros`)
-                .then(res => res.json())
-                .then(d => {
-                    if(d.success) {
-                        globalData.macros = {cals:0};
-                        renderMacrosWidget(globalData.macros);
-                    }
-                });
-        }
-
-        function submitRecord() {
-            const name = document.getElementById('rec-name').value;
-            const weight = document.getElementById('rec-weight').value;
-            const reps = document.getElementById('rec-reps').value || 0;
-            if(!name) return;
-            closeModal('modal-record');
-            const initData = tg.initData;
-            fetch(`${N8N_URL}?auth=${encodeURIComponent(initData)}&action=add_record&name=${name}&weight=${weight}&reps=${reps}`).then(r => loadData(initData));
-        }
-
-        function submitWorkout() {
-            const prog = document.getElementById('work-prog').value;
-            const time = document.getElementById('work-time').value;
-            if(!time) return;
-            closeModal('modal-workout');
-            const initData = tg.initData;
-            const group = document.getElementById('work-group').value;
-            const water = document.getElementById('work-water').value;
-            fetch(`${N8N_URL}?auth=${encodeURIComponent(initData)}&action=add_workout&prog=${prog}&group=${group}&time=${time}&water=${water}`).then(r => loadData(initData));
-        }
-        
-        function submitCustomMacros() {
-            const cals = document.getElementById('custom-cals').value;
-            const p = document.getElementById('custom-prot').value;
-            const f = document.getElementById('custom-fats').value;
-            const c = document.getElementById('custom-carbs').value;
-            if(!cals) return;
-            closeModal('modal-custom-macros');
-            currentMacros = { cals, p, f, c };
-            saveMacros(true);
-        }
-
-        function saveMacros(isCustom = false) {
-            if (!currentMacros) return;
-            const initData = tg.initData;
-            fetch(`${N8N_URL}?auth=${encodeURIComponent(initData)}&action=save_macros&cals=${currentMacros.cals}&prot=${currentMacros.p}&fats=${currentMacros.f}&carbs=${currentMacros.c}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        if(!isCustom) {
-                            setTimeout(() => switchTab('stats'), 500);
-                        }
-                        loadData(initData);
-                    }
-                });
-        }
-
-        function calculateMacros() {
-            const w = document.getElementById('c-weight').value;
-            const h = document.getElementById('c-height').value;
-            const a = document.getElementById('c-age').value;
-            const act = document.getElementById('c-activity').value;
-            const goal = document.querySelector('input[name="goal"]:checked').value;
-            const gen = document.querySelector('input[name="gender"]:checked').value;
-            if(!w || !h || !a) { return; }
-            let bmr = (10*w) + (6.25*h) - (5*a) + (gen==='male'?5:-161);
-            let tdee = bmr * act;
-            if(goal==='cut') tdee *= 0.85; else if(goal==='bulk') tdee *= 1.15;
-            const cals = Math.round(tdee);
-            currentMacros = { cals, p: Math.round(cals*0.3/4), f: Math.round(cals*0.25/9), c: Math.round(cals*0.45/4) };
-            document.getElementById('res-total').innerText = cals;
-            document.getElementById('res-p').innerText = currentMacros.p;
-            document.getElementById('res-f').innerText = currentMacros.f;
-            document.getElementById('res-c').innerText = currentMacros.c;
-            document.getElementById('calc-result').classList.remove('hidden');
-            document.getElementById('calc-result').scrollIntoView({behavior:'smooth'});
-        }
-
-        function switchTab(t) {
-            ['stats','calc'].forEach(x => document.getElementById(`tab-${x}`).classList.add('hidden'));
-            document.getElementById(`tab-${t}`).classList.remove('hidden');
-            const c1 = 'var(--accent)', c2 = '#A1A1AA';
-            const s = document.getElementById('btn-stats'), c = document.getElementById('btn-calc');
-            s.querySelector('svg').style.color = t==='stats'?c1:c2; s.querySelector('span').style.color = t==='stats'?c1:c2;
-            c.querySelector('svg').style.color = t==='calc'?c1:c2; c.querySelector('span').style.color = t==='calc'?c1:c2;
-        }
-        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+    });
+}
     </script>
 </body>
 </html>
